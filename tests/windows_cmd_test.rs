@@ -64,7 +64,7 @@ fn if_exist_handles_a_quoted_path_without_relying_on_git_installation() {
 fn quoted_executable_path_works_with_absolute_cmd_path() {
     let dir = tempfile::tempdir().expect("temporary directory");
     let program = dir.path().join("rtk copy.exe");
-    std::fs::copy(env!("CARGO_BIN_EXE_rtk"), &program).expect("copy RTK fixture");
+    std::fs::copy(common::rtk_command().get_program(), &program).expect("copy RTK fixture");
     let cmd = which::which("cmd.exe").expect("resolve cmd.exe");
     let script = format!(r#""{}" --version"#, program.display());
 
@@ -133,7 +133,7 @@ fn quoted_redirection_remains_text_instead_of_creating_a_file() {
 fn split_executable_path_retains_its_argument_boundaries() {
     let dir = tempfile::tempdir().expect("temporary directory");
     let program = dir.path().join("rtk copy.exe");
-    std::fs::copy(env!("CARGO_BIN_EXE_rtk"), &program).expect("copy RTK fixture");
+    std::fs::copy(common::rtk_command().get_program(), &program).expect("copy RTK fixture");
     for route in ROUTES {
         let output = invocation(route, "cmd.exe")
             .args(["/D", "/C"])

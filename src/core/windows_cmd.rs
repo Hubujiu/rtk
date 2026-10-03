@@ -142,13 +142,21 @@ mod tests {
     use super::*;
 
     fn encoded(args: &[&str]) -> String {
-        let args: Vec<Vec<u16>> = args.iter().map(|arg| arg.encode_utf16().collect()).collect();
+        let args: Vec<Vec<u16>> = args
+            .iter()
+            .map(|arg| arg.encode_utf16().collect())
+            .collect();
         String::from_utf16(&command_line(&args)).expect("valid UTF-16 fixture")
     }
 
     #[test]
     fn recognizes_only_cmd_itself() {
-        for name in ["cmd", "CMD.EXE", r"C:\Windows\System32\cmd.exe", "/tools/cmd"] {
+        for name in [
+            "cmd",
+            "CMD.EXE",
+            r"C:\Windows\System32\cmd.exe",
+            "/tools/cmd",
+        ] {
             assert!(is_cmd_program(OsStr::new(name)), "{name}");
         }
         for name in ["cmdx", "cmd.bat", "cmd.cmd", "npm.CMD", "git.exe", "sh", ""] {
@@ -183,7 +191,13 @@ mod tests {
     #[test]
     fn split_arguments_keep_spaces_empty_values_and_trailing_backslashes() {
         assert_eq!(
-            encoded(&["/C", r"C:\Program Files\tool.exe", "a b", "", r"C:\dir space\"]),
+            encoded(&[
+                "/C",
+                r"C:\Program Files\tool.exe",
+                "a b",
+                "",
+                r"C:\dir space\"
+            ]),
             r#"/S /C ""C:\Program Files\tool.exe" "a b" "" "C:\dir space\"""#
         );
     }
