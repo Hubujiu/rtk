@@ -63,9 +63,7 @@ pub fn run(path: &Path, verbose: u8) -> Result<()> {
     for error in &failures {
         eprintln!("rtk deps: warning: {error:#}");
     }
-    if !summarized
-        && let Some(error) = failures.pop()
-    {
+    if !summarized && let Some(error) = failures.pop() {
         return Err(error.context("No dependency manifest could be summarized"));
     }
 

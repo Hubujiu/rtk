@@ -41,7 +41,10 @@ fn malformed_json_keeps_summaries_before_and_after_it() {
     assert!(stdout.contains("Rust (Cargo.toml):"), "{stdout:?}");
     assert!(stdout.contains("serde (1.0)"), "{stdout:?}");
     assert!(stdout.contains("Go (go.mod):"), "{stdout:?}");
-    assert!(stdout.contains("github.com/pkg/errors v0.9.1"), "{stdout:?}");
+    assert!(
+        stdout.contains("github.com/pkg/errors v0.9.1"),
+        "{stdout:?}"
+    );
     assert!(stderr.contains("package.json"), "{stderr:?}");
     assert!(stderr.contains("trailing comma"), "{stderr:?}");
 }
@@ -81,8 +84,7 @@ fn unreadable_last_manifest_does_not_discard_earlier_summary() {
 fn warning_survives_raw_fallback_for_a_tiny_valid_manifest() {
     let dir = tempfile::tempdir().expect("tempdir");
     fs::write(dir.path().join("package.json"), BAD_JSON).expect("write package.json");
-    fs::write(dir.path().join("requirements.txt"), "requests\n")
-        .expect("write requirements.txt");
+    fs::write(dir.path().join("requirements.txt"), "requests\n").expect("write requirements.txt");
 
     let output = deps(dir.path());
     let stdout = String::from_utf8_lossy(&output.stdout);
