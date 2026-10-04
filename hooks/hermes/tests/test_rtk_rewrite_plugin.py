@@ -59,6 +59,12 @@ def write_fake_rtk(bin_dir):
 
 
 class RtkRewritePluginTest(unittest.TestCase):
+    def setUp(self):
+        environment = mock.patch.dict(os.environ)
+        environment.start()
+        self.addCleanup(environment.stop)
+        os.environ.pop("RTK_HERMES_TIMEOUT", None)
+
     def load_callback(self):
         module = load_plugin_module()
         module._rtk_available = None
@@ -136,9 +142,17 @@ class RtkRewritePluginTest(unittest.TestCase):
                     return_value=FakeCompletedProcess(
                         returncode=returncode, stdout="rtk git status\n"
                     ),
-                ):
+                ) as run:
                     directive = callback(tool_name="terminal", args=args)
 
+                run.assert_called_once_with(
+                    ["rtk", "rewrite", "git status"],
+                    shell=False,
+                    stdin=subprocess.DEVNULL,
+                    timeout=5,
+                    capture_output=True,
+                    text=True,
+                )
                 self.assertEqual(
                     {
                         "action": "modify",
@@ -150,6 +164,29 @@ class RtkRewritePluginTest(unittest.TestCase):
                 self.assertEqual(
                     {"command": "git status", "workdir": "/repo", "timeout": 30}, args
                 )
+
+    def test_rewrite_timeout_uses_positive_environment_override(self):
+        for value, expected in (("12", 12), ("0.25", 0.25), (" 7.5 ", 7.5)):
+            with self.subTest(value=value):
+                module, callback = self.load_callback()
+                with mock.patch.dict(os.environ, {"RTK_HERMES_TIMEOUT": value}):
+                    with mock.patch.object(
+                        module.subprocess, "run", return_value=FakeCompletedProcess()
+                    ) as run:
+                        callback(tool_name="terminal", args={"command": "git status"})
+                self.assertEqual(expected, run.call_args.kwargs["timeout"])
+                self.assertEqual(subprocess.DEVNULL, run.call_args.kwargs["stdin"])
+
+    def test_rewrite_timeout_falls_back_for_invalid_environment_values(self):
+        for value in ("", " ", "invalid", "0", "-1", "nan", "inf", "-inf", "1e999", "1e-999"):
+            with self.subTest(value=value):
+                module, callback = self.load_callback()
+                with mock.patch.dict(os.environ, {"RTK_HERMES_TIMEOUT": value}):
+                    with mock.patch.object(
+                        module.subprocess, "run", return_value=FakeCompletedProcess()
+                    ) as run:
+                        callback(tool_name="terminal", args={"command": "git status"})
+                self.assertEqual(5, run.call_args.kwargs["timeout"])
 
     def test_expected_passthrough_returncodes_do_not_warn_or_mutate(self):
         for returncode in (1, 2):
@@ -191,7 +228,7 @@ class RtkRewritePluginTest(unittest.TestCase):
         module, callback = self.load_callback()
         args = {"command": "git status"}
 
-        timeout = subprocess.TimeoutExpired(cmd=["rtk", "rewrite", "git status"], timeout=2)
+        timeout = subprocess.TimeoutExpired(cmd=["rtk", "rewrite", "git status"], timeout=5)
         with mock.patch.object(module.subprocess, "run", side_effect=timeout):
             with mock.patch.object(module.sys, "stderr", new_callable=io.StringIO) as stderr:
                 self.assertIsNone(callback(tool_name="terminal", args=args))

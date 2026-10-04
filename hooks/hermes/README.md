@@ -24,6 +24,8 @@ Hermes loads plugins from Python, so the plugin entrypoint is Python. The Python
 
 All rewrite rules stay in Rust inside `rtk rewrite`. When RTK adds or changes command rewrite behavior, the Hermes plugin picks up that behavior by delegating to the RTK binary.
 
+The rewrite subprocess has no standard input and defaults to a 5-second timeout. Set `RTK_HERMES_TIMEOUT` to a positive, finite number of seconds (for example, `RTK_HERMES_TIMEOUT=10`) to override it. Missing, malformed, non-positive, or non-finite values fall back to 5 seconds. This controls the rewrite step only, not the terminal command's own timeout.
+
 ## Fail-open behavior
 
 The plugin does not block command execution. If anything goes wrong, Hermes runs the original command unchanged.
