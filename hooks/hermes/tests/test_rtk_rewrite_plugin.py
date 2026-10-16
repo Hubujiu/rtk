@@ -130,7 +130,7 @@ class RtkRewritePluginTest(unittest.TestCase):
 
         which.assert_called_once_with("rtk")
 
-    def test_rewrite_returns_modify_directive_without_mutating_terminal_args(self):
+    def test_rewrite_updates_payload_and_returns_command_only_directive(self):
         for returncode in (0, 3):
             with self.subTest(returncode=returncode):
                 module, callback = self.load_callback()
@@ -156,13 +156,13 @@ class RtkRewritePluginTest(unittest.TestCase):
                 self.assertEqual(
                     {
                         "action": "modify",
-                        "args": {"command": "rtk git status", "workdir": "/repo", "timeout": 30},
+                        "args": {"command": "rtk git status"},
                     },
                     directive,
                 )
                 self.assertIsNot(args, directive["args"])
                 self.assertEqual(
-                    {"command": "git status", "workdir": "/repo", "timeout": 30}, args
+                    {"command": "rtk git status", "workdir": "/repo", "timeout": 30}, args
                 )
 
     def test_rewrite_timeout_uses_positive_environment_override(self):
@@ -317,6 +317,12 @@ class RtkRewritePluginTest(unittest.TestCase):
 
 
 class InstalledRtkRewritePluginTest(unittest.TestCase):
+    def setUp(self):
+        environment = mock.patch.dict(os.environ)
+        environment.start()
+        self.addCleanup(environment.stop)
+        os.environ.pop("RTK_HERMES_TIMEOUT", None)
+
     @unittest.skipUnless(shutil.which("cargo"), "cargo is required for installed flow")
     def test_cargo_init_installs_importable_plugin_that_rewrites_with_fake_rtk(self):
         repo_root = Path(__file__).resolve().parents[3]
@@ -367,13 +373,15 @@ class InstalledRtkRewritePluginTest(unittest.TestCase):
                 module.register(ctx)
                 callback = ctx.hooks["pre_tool_call"]
 
-                args = {"command": "git status"}
+                args = {"command": "git status", "workdir": "/repo", "timeout": 30}
                 directive = callback(tool_name="terminal", args=args)
 
             self.assertEqual(
                 {"action": "modify", "args": {"command": "rtk git status"}}, directive
             )
-            self.assertEqual({"command": "git status"}, args)
+            self.assertEqual(
+                {"command": "rtk git status", "workdir": "/repo", "timeout": 30}, args
+            )
 
 
 if __name__ == "__main__":

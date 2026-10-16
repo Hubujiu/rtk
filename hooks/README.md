@@ -58,7 +58,7 @@ Each agent subdirectory has its own README with hook-specific details:
 | Codex CLI | AGENTS.md / instructions | Prompt-level guidance | N/A |
 | OpenCode | TypeScript plugin (`tool.execute.before`) | In-place mutation | Yes |
 | Pi | TypeScript extension (`tool_call` event) | In-place mutation | Yes |
-| Hermes | Python plugin (`pre_tool_call`) | In-place mutation | Yes |
+| Hermes | Python plugin (`pre_tool_call`) | Payload update + command-only modify directive | Yes |
 | Mistral Vibe | Rust binary (`rtk hook vibe`) | Transparent rewrite | Yes (`hook_specific_output.tool_input`) |
 
 ## JSON Formats by Agent
@@ -199,13 +199,17 @@ if (rewritten && rewritten !== command) {
 
 ### Hermes (Python Plugin)
 
-Mutates `args["command"]` in-place via the `pre_tool_call` hook:
+Updates `args["command"]` for older Hermes releases and returns a command-only `modify` directive for newer releases. Other plugins' argument changes are preserved. The adapter uses a 5-second default rewrite timeout, configurable through `RTK_HERMES_TIMEOUT` (see [timeout limits](hermes/README.md#how-it-works)). Simplified success path:
 
 ```python
-result = subprocess.run(["rtk", "rewrite", command], capture_output=True, text=True, timeout=2)
+result = subprocess.run(
+    ["rtk", "rewrite", command], shell=False, stdin=subprocess.DEVNULL,
+    capture_output=True, text=True, timeout=_rewrite_timeout(),
+)
 rewritten = result.stdout.strip()
 if result.returncode in {0, 3} and rewritten and rewritten != command:
     args["command"] = rewritten
+    return {"action": "modify", "args": {"command": rewritten}}
 ```
 
 ## Command Rewrite Registry
