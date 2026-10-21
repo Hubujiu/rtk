@@ -49,7 +49,7 @@ def _rewrite_timeout():
 
 
 def _pre_tool_call(tool_name=None, args=None, **_kwargs):
-    """Update the payload and return a command-only Hermes modify directive."""
+    """Update the shared payload without overriding other hooks' directives."""
     try:
         if tool_name != "terminal" or not isinstance(args, dict):
             return
@@ -82,10 +82,11 @@ def _pre_tool_call(tool_name=None, args=None, **_kwargs):
 
         rewritten = result.stdout.strip()
         if rewritten and rewritten != command:
-            # Older Hermes executes this payload without reading modify directives.
+            # Hermes executes this shared payload, including on releases before
+            # modify directives were supported. Newer releases then apply queued
+            # directives in hook order. Returning a command directive here would
+            # overwrite an earlier plugin's command that this hook cannot see.
             args["command"] = rewritten
-            # Newer Hermes merges directives: do not overwrite other plugins' keys.
-            return {"action": "modify", "args": {"command": rewritten}}
     except Exception as e:
         _warn(str(e))
         return

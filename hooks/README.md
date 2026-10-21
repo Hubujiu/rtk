@@ -306,7 +306,7 @@ if (tool === "bash" || tool === "shell") {
 
 ### Hermes (Python Plugin)
 
-Updates `args["command"]` for older Hermes releases and returns a command-only `modify` directive for newer releases. Other plugins' argument changes are preserved. The adapter uses a 5-second default rewrite timeout, configurable through `RTK_HERMES_TIMEOUT` (see [timeout limits](hermes/README.md#how-it-works)). Simplified success path:
+Updates the shared `args["command"]` payload and returns no directive on both older and newer Hermes releases. This lets other plugins' explicit `modify` directives take precedence, including changes to `command` and `workdir`. The adapter uses a 5-second default rewrite timeout, configurable through `RTK_HERMES_TIMEOUT` (see [timeout limits](hermes/README.md#how-it-works)). Simplified success path:
 
 ```python
 result = subprocess.run(
@@ -316,7 +316,6 @@ result = subprocess.run(
 rewritten = result.stdout.strip()
 if result.returncode in {0, 3} and rewritten and rewritten != command:
     args["command"] = rewritten
-    return {"action": "modify", "args": {"command": rewritten}}
 ```
 
 ## Command Rewrite Registry

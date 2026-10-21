@@ -130,7 +130,7 @@ class RtkRewritePluginTest(unittest.TestCase):
 
         which.assert_called_once_with("rtk")
 
-    def test_rewrite_updates_payload_and_returns_command_only_directive(self):
+    def test_rewrite_updates_payload_without_returning_a_directive(self):
         for returncode in (0, 3):
             with self.subTest(returncode=returncode):
                 module, callback = self.load_callback()
@@ -153,17 +153,42 @@ class RtkRewritePluginTest(unittest.TestCase):
                     capture_output=True,
                     text=True,
                 )
-                self.assertEqual(
-                    {
-                        "action": "modify",
-                        "args": {"command": "rtk git status"},
-                    },
-                    directive,
-                )
-                self.assertIsNot(args, directive["args"])
+                self.assertIsNone(directive)
                 self.assertEqual(
                     {"command": "rtk git status", "workdir": "/repo", "timeout": 30}, args
                 )
+
+    def test_rewrite_preserves_earlier_plugins_command_and_workdir_directives(self):
+        for partial in (
+            {"command": "git status --porcelain"},
+            {"workdir": "/safe/repo"},
+            {"command": "git status --porcelain", "workdir": "/safe/repo"},
+        ):
+            for returncode in (0, 3):
+                with self.subTest(partial=partial, returncode=returncode):
+                    module, callback = self.load_callback()
+                    args = {"command": "git status", "workdir": "/repo", "timeout": 30}
+                    # Hermes gives hooks the shared payload, then merges returned
+                    # modify directives in hook order, not before the next hook.
+                    directives = [{"action": "modify", "args": dict(partial)}]
+                    with mock.patch.object(
+                        module.subprocess,
+                        "run",
+                        return_value=FakeCompletedProcess(
+                            returncode=returncode, stdout="rtk git status\n"
+                        ),
+                    ):
+                        directives.append(callback(tool_name="terminal", args=args))
+
+                    effective_args = dict(args)
+                    for directive in directives:
+                        if isinstance(directive, dict) and directive.get("action") == "modify":
+                            effective_args.update(directive["args"])
+
+                    self.assertEqual(
+                        {"command": "rtk git status", "workdir": "/repo", "timeout": 30, **partial},
+                        effective_args,
+                    )
 
     def test_rewrite_timeout_uses_positive_environment_override(self):
         for value, expected in (("12", 12), ("0.25", 0.25), (" 7.5 ", 7.5)):
@@ -376,9 +401,7 @@ class InstalledRtkRewritePluginTest(unittest.TestCase):
                 args = {"command": "git status", "workdir": "/repo", "timeout": 30}
                 directive = callback(tool_name="terminal", args=args)
 
-            self.assertEqual(
-                {"action": "modify", "args": {"command": "rtk git status"}}, directive
-            )
+            self.assertIsNone(directive)
             self.assertEqual(
                 {"command": "rtk git status", "workdir": "/repo", "timeout": 30}, args
             )
