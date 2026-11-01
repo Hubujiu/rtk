@@ -67,7 +67,7 @@ Each agent subdirectory has its own README with hook-specific details:
 | OpenCode | TypeScript plugin (`execute.before` in 2.0, `tool.execute.before` in 1.x >= 1.18.29) | In-place mutation | Yes |
 | Pi | TypeScript extension (`tool_call` event) | In-place mutation | Yes |
 | Oh My Pi (OMP) | TypeScript extension (`tool_call` event, shared with Pi) | In-place mutation | Yes |
-| Hermes | Python plugin (`pre_tool_call`) | Payload update + command-only modify directive | Yes |
+| Hermes | Python plugin (`pre_tool_call`) | In-place mutation | Yes |
 | Mistral Vibe | Rust binary (`rtk hook vibe`) | Transparent rewrite | Yes (`hook_specific_output.tool_input`) |
 
 ## JSON Formats by Agent
@@ -306,7 +306,7 @@ if (tool === "bash" || tool === "shell") {
 
 ### Hermes (Python Plugin)
 
-Updates the shared `args["command"]` payload and returns no directive on both older and newer Hermes releases. This lets other plugins' explicit `modify` directives take precedence, including changes to `command` and `workdir`. The adapter uses a 5-second default rewrite timeout, configurable through `RTK_HERMES_TIMEOUT` (see [timeout limits](hermes/README.md#how-it-works)). Simplified success path:
+Mutates `args["command"]` in place and returns no directive, so on Hermes v2026.8.16 (0.20.2) and later another plugin's `modify` directive that sets `command` replaces the rewrite. The adapter uses a 5-second default rewrite timeout, configurable through `RTK_HERMES_TIMEOUT` (see [timeout limits](hermes/README.md#how-it-works)). Simplified success path:
 
 ```python
 result = subprocess.run(

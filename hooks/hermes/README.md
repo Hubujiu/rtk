@@ -12,17 +12,15 @@ The installer writes the plugin to `~/.hermes/plugins/rtk-rewrite/` and enables 
 
 ## How it works
 
-Hermes loads plugins from Python, so the plugin entrypoint is Python. The Python code is only a thin Hermes adapter. It reads the Hermes terminal tool payload, calls `rtk rewrite` for the actual command decision, then updates `command` in the shared payload and returns no directive. Hermes executes that updated payload on both older and newer releases.
-
-Starting with v2026.8.16 (Hermes 0.20.2), Hermes also merges hooks' `modify` directives in hook order, after invoking the callbacks. An earlier hook's directive is therefore not visible to this callback. Returning a `command` directive would overwrite that hook's command, potentially undoing a safety rewrite. By returning no directive, RTK lets those explicit changes win, preserving both `command` and `workdir` changes even when that means running the command without RTK compression. Earlier releases, including v2026.8.13 (0.20.1), do not apply `modify` directives.
+Hermes loads plugins from Python, so the plugin entrypoint is Python. The Python code is only a thin Hermes adapter. It reads the Hermes terminal tool payload, calls `rtk rewrite` for the actual command decision, then updates `command` in that payload, which Hermes executes. It returns no `modify` directive. On Hermes releases that apply `modify` directives (v2026.8.16, Hermes 0.20.2, and later), one from another plugin that sets `command` replaces the rewritten command; directives for other keys, such as `workdir`, leave the rewrite in place.
 
 All rewrite rules stay in Rust inside `rtk rewrite`. When RTK adds or changes command rewrite behavior, the Hermes plugin picks up that behavior by delegating to the RTK binary.
 
-The rewrite subprocess has no standard input and defaults to a 5-second timeout. Set `RTK_HERMES_TIMEOUT` to a positive, finite number of seconds (for example, `RTK_HERMES_TIMEOUT=10`) to override it. Missing, malformed, non-positive, or non-finite values fall back to 5 seconds. This controls the rewrite step only, not the terminal command's own timeout. From v2026.8.31 (Hermes 0.21.0), keep it below Hermes' `plugins.hook_callback_timeout` (30 seconds by default): the host may block the tool call if its callback limit is reached. Earlier releases have no host callback limit. Extremely large values may exceed the platform subprocess timeout limit and cause a warning with no rewrite.
+The rewrite subprocess has no standard input and defaults to a 5-second timeout. Set `RTK_HERMES_TIMEOUT` to a positive, finite number of seconds (for example, `RTK_HERMES_TIMEOUT=10`) to override it. Missing, malformed, non-positive, or non-finite values fall back to 5 seconds. This controls the rewrite step only, not the terminal command's own timeout. From v2026.8.27 (Hermes 0.20.6), keep it below Hermes' `plugins.hook_callback_timeout` (30 seconds by default): the host may block the tool call if its callback limit is reached. Earlier releases have no host callback limit. Extremely large values may exceed the platform subprocess timeout limit and cause a warning with no rewrite.
 
 ## Fail-open behavior
 
-The plugin itself does not request blocking. On rewrite failures it leaves the original command unchanged and returns no directive. From v2026.8.31 (Hermes 0.21.0), Hermes can still block execution if its own callback timeout is reached.
+The plugin itself does not request blocking. On rewrite failures it leaves the original command unchanged and returns no directive. From v2026.8.27 (Hermes 0.20.6), Hermes can still block execution if its own callback timeout is reached.
 
 If rtk is not available in PATH when Hermes loads the plugin, the plugin prints a warning and skips hook registration.
 
